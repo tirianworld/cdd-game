@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 import { sound } from '../services/soundService';
-import { Lock, Star, Check, ChevronRight, Award, Gift, Sparkles, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface QuestMission {
   id: string;
   title: string;
+  iconType: 'boss' | 'swords' | 'skull';
   difficulty: 'Facil' | 'Normal' | 'Dificil' | 'Extremo';
   description: string;
   portrait: string;
@@ -25,66 +26,68 @@ export const QuestView: React.FC = () => {
   const [chestClaimed, setChestClaimed] = useState(false);
   const [showChestModal, setShowChestModal] = useState(false);
 
+  // Content scroll & drag interaction (no visible scrollbar, drag to scroll)
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const isContentDragging = useRef(false);
+  const contentStartY = useRef(0);
+  const contentStartScroll = useRef(0);
+
+  const handleContentPointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button')) return;
+    isContentDragging.current = true;
+    contentStartY.current = e.clientY;
+    contentStartScroll.current = scrollContainerRef.current?.scrollTop || 0;
+  };
+
+  const handleContentPointerMove = (e: React.PointerEvent) => {
+    if (!isContentDragging.current || !scrollContainerRef.current) return;
+    const deltaY = e.clientY - contentStartY.current;
+    scrollContainerRef.current.scrollTop = contentStartScroll.current - deltaY;
+  };
+
+  const handleContentPointerUp = () => {
+    isContentDragging.current = false;
+  };
+
   const missions: QuestMission[] = [
     {
       id: 'm1_tirano',
       title: 'El Tirano de Hielo',
+      iconType: 'boss',
       difficulty: 'Facil',
       description:
-        'Un variopinto grupo de aventureros se reunen en una mesa de la taverna de Icespear, reclutados por el capitán de la guardia de la aldea para llevar a cabo una importante misión.',
-      portrait: '/assets/portraits/edacorn_c1_icono.png',
+        'Un variopinto grupo de aventureros se reúne en Icespear...',
+      portrait: '/assets/portraits/capitan_gabriel_icono.png',
       stageId: 'stage_1',
     },
     {
       id: 'm2_robo',
       title: 'Robo no tan Justo',
+      iconType: 'swords',
       difficulty: 'Facil',
       description:
-        'Sin dinero y con una nueva misión, El recien formado grupo Caldo de Dragón se dispone a relizar un acto no muy heroico para recuperar provisiones requisadas.',
-      portrait: '/assets/portraits/edacorn_c1_icono.png',
-      stageId: 'stage_1',
-    },
-    {
-      id: 'm3_cuevas',
-      title: 'Cuevas de las Sombras Heladas',
-      difficulty: 'Normal',
-      description:
-        'Descenso hacia las cavernas de hielo subterráneas donde las criaturas de las sombras preparan una emboscada.',
-      portrait: '/assets/portraits/kurogame_icono.png',
+        'Sin dinero y con nueva misión, Caldo de Dragón planea un...',
+      portrait: '/assets/portraits/capitan_gabriel_icono.png',
       stageId: 'stage_2',
     },
     {
-      id: 'm4_mansion',
-      title: 'Encuentro en la Mansión Loux',
+      id: 'm3_cuevas',
+      title: '???',
+      iconType: 'skull',
       difficulty: 'Normal',
-      description:
-        'Pepe Loux solicita apoyo para erradicar a los bandidos que han sitiado las bodegas de la mansión solariega.',
-      portrait: '/assets/portraits/pepe_loux.png',
+      description: 'Misión desconocida',
+      portrait: '/assets/portraits/capitan_gabriel_icono.png',
       stageId: 'stage_3',
-    },
-    {
-      id: 'm5_asedio',
-      title: 'El Juicio del Tribunal Astral',
-      difficulty: 'Dificil',
-      description:
-        'Los heraldos astrales ponen a prueba la valentía de tu escuadrón antes de otorgar el paso hacia el sagrario.',
-      portrait: '/assets/portraits/kairon.png',
-      stageId: 'stage_3',
-    },
-    {
-      id: 'm6_cryovain',
-      title: 'El Despertar de Cryovain',
-      difficulty: 'Extremo',
-      description:
-        'El dragón blanco ancestral desciende sobre la fortaleza. ¡Una batalla legendaria por el destino del norte!',
-      portrait: '/assets/portraits/raxxar.png',
-      stageId: 'stage_4',
     },
   ];
 
-  const completedCount = missions.filter((m) =>
-    questProgress.completedMissions.includes(m.id)
-  ).length;
+  // Dynamic completed missions count (Chapter 1 has 6 missions)
+  const completedCount = Math.max(
+    1,
+    missions.filter((m) => questProgress.completedMissions.includes(m.id)).length
+  );
 
   const handleLaunchCombat = (mission: QuestMission) => {
     sound.playSFX('click');
@@ -93,231 +96,416 @@ export const QuestView: React.FC = () => {
   };
 
   const handleClaimChest = () => {
-    if (!chestClaimed && completedCount >= 2) {
-      sound.playSFX('victory');
-      addGold(10000);
+    sound.playSFX('victory');
+    if (!chestClaimed) {
+      addGold(15000);
       addCrystals(500);
       setChestClaimed(true);
-      setShowChestModal(true);
     }
+    setShowChestModal(true);
   };
 
   return (
-    <div className="relative w-full h-full min-h-[580px] flex-1 flex flex-col justify-start bg-[#240e06] p-2 sm:p-3 space-y-2 select-none overflow-y-auto no-scrollbar">
-      {/* Chapter Tabs Along Top (matching image_8afa574c.png) */}
-      <div className="grid grid-cols-4 gap-1">
-        {/* Capitulo I */}
-        <button
-          onClick={() => {
-            sound.playSFX('click');
-            setActiveChapter(1);
-          }}
-          className={`py-2 px-1 rounded-t-lg border-t-2 border-x-2 transition-all cursor-pointer text-center ${
-            activeChapter === 1
-              ? 'bg-gradient-to-b from-[#78350f] to-[#451a03] border-amber-500 shadow-lg text-amber-200'
-              : 'bg-[#291307] border-[#451a03] text-stone-500 hover:text-stone-300'
-          }`}
-        >
-          <div className="text-[9px] sm:text-[10px] font-black uppercase tracking-tight leading-tight">
-            CAPITULO I
-          </div>
-          <div className="text-[8px] uppercase tracking-tighter opacity-80 leading-none">
-            ICESPEAR
-          </div>
-        </button>
+    <div className="relative w-full h-full flex flex-col justify-start bg-transparent select-none overflow-hidden">
+      {/* 1. AUTHENTIC FULL-BLEED BACKGROUND (fondo_icespear_1.png) */}
+      <img
+        src="/assets/backgrounds/fondo_icespear_1.png"
+        alt="Fondo Icespear"
+        className="absolute inset-0 w-full h-full object-fill pointer-events-none select-none z-0"
+      />
 
-        {/* Capitulo II (Locked) */}
-        <div className="py-2 px-1 rounded-t-lg bg-[#1f0d05] border-t-2 border-x-2 border-[#3b170c] text-stone-600 flex flex-col items-center justify-center opacity-70">
-          <div className="flex items-center gap-0.5 text-[9px] font-bold">
-            <Lock className="w-2.5 h-2.5 text-stone-500" />
-            <span>CAP II</span>
-          </div>
-          <span className="text-[7px] uppercase tracking-tighter">EL BARRACÓN</span>
-        </div>
-
-        {/* Empty Chapter Slots */}
-        <div className="py-2 px-1 rounded-t-lg bg-[#190a04] border-t-2 border-x-2 border-[#2b0f05] opacity-40" />
-        <div className="py-2 px-1 rounded-t-lg bg-[#190a04] border-t-2 border-x-2 border-[#2b0f05] opacity-40" />
-      </div>
-
-      {/* Chapter Header Banner (Cabin in the snowy mountain at dusk) */}
-      <div className="relative w-full h-32 sm:h-36 rounded-xl overflow-hidden border-2 border-[#682e11] shadow-2xl bg-[#0f0704]">
-        <img
-          src="/assets/backgrounds/fondo_icespear.png"
-          alt="Icespear"
-          className="w-full h-full object-cover object-top brightness-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2.5">
-          <div className="space-y-0.5">
-            <span className="text-[10px] uppercase font-bold text-amber-400 tracking-wider">
-              Capítulo I &bull; Tierras de Hielo
+      {/* 2. TOP CHAPTER TABS (Positioned on the top wooden plank of fondo_icespear_1.png) */}
+      <div className="relative z-20 w-full px-[4.5%] pt-[1.5%] pb-[1%] shrink-0">
+        <div className="grid grid-cols-4 gap-1.5 h-10 sm:h-11 items-center">
+          {/* TAB 1: CAPITULO I ICESPEAR (Active) */}
+          <button
+            type="button"
+            onClick={() => {
+              sound.playSFX('click');
+              setActiveChapter(1);
+            }}
+            className={`relative h-full rounded-md flex flex-col items-center justify-center cursor-pointer transition-transform ${
+              activeChapter === 1
+                ? 'filter brightness-110 drop-shadow-[0_2px_6px_rgba(251,191,36,0.6)]'
+                : 'opacity-85 hover:opacity-100'
+            }`}
+          >
+            <img
+              src="/assets/items/boton_historia.png"
+              alt="Capitulo I"
+              className="absolute inset-0 w-full h-full object-fill pointer-events-none"
+            />
+            <span className="relative z-10 text-[8.5px] sm:text-[9.5px] font-black uppercase text-amber-100 leading-tight drop-shadow-[0_1px_1px_rgba(0,0,0,0.95)]">
+              CAPITULO I
             </span>
-            <h3 className="font-serif font-black text-amber-100 text-sm sm:text-base drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
-              El Asedio de Icespear
-            </h3>
-          </div>
-        </div>
-      </div>
+            <span className="relative z-10 text-[7.5px] sm:text-[8.5px] font-bold uppercase text-amber-300 leading-tight tracking-wider drop-shadow-[0_1px_1px_rgba(0,0,0,0.95)]">
+              ICESPEAR
+            </span>
+          </button>
 
-      {/* Chapter Progress Bar with Glowing Orange Fill & Boss Chest (matching image_8afa574c.png) */}
-      <div className="wood-panel rounded-xl p-2.5 flex items-center justify-between gap-3 shadow-lg">
-        <div className="flex-1 space-y-1">
-          <div className="flex items-center justify-between text-[11px] font-bold text-amber-200 uppercase tracking-tight">
-            <span>PROGRESO DEL CAPITULO</span>
-            <span className="font-mono text-amber-400">{completedCount}/6</span>
-          </div>
-
-          {/* Molten Orange / Lava Glowing Progress Bar */}
-          <div className="w-full h-4 sm:h-5 rounded-md bg-[#1a0802] border border-[#78350f] p-0.5 overflow-hidden shadow-inner relative">
-            <div
-              className="h-full rounded-sm bg-gradient-to-r from-red-600 via-amber-500 to-yellow-300 shadow-[0_0_8px_#f59e0b] transition-all duration-500"
-              style={{ width: `${Math.max(10, (completedCount / 6) * 100)}%` }}
+          {/* TAB 2: CAPITULO II EL BARRACÓN (Locked with hanging CANDADO.png) */}
+          <div className="relative h-full rounded-md flex flex-col items-center justify-center cursor-not-allowed filter brightness-75">
+            <img
+              src="/assets/items/boton_historia.png"
+              alt="Capitulo II"
+              className="absolute inset-0 w-full h-full object-fill pointer-events-none"
+            />
+            <span className="relative z-10 text-[8.5px] sm:text-[9.5px] font-black uppercase text-stone-300 leading-tight drop-shadow-[0_1px_1px_rgba(0,0,0,0.95)]">
+              CAPITULO II
+            </span>
+            <span className="relative z-10 text-[7px] sm:text-[8px] font-bold uppercase text-stone-400 leading-tight tracking-wider drop-shadow-[0_1px_1px_rgba(0,0,0,0.95)]">
+              EL BARRACÓN
+            </span>
+            {/* Hanging Padlock */}
+            <img
+              src="/assets/items/CANDADO.png"
+              alt="Bloqueado"
+              className="absolute -bottom-1.5 w-4 h-4.5 object-contain z-20 drop-shadow-md pointer-events-none"
             />
           </div>
+
+          {/* TAB 3: Empty Recessed Wood Slot (Matching image_abf9fae6.png) */}
+          <div className="relative h-full rounded-md bg-[#240e05]/90 border border-[#4a1c09] shadow-[inset_0_2px_4px_rgba(0,0,0,0.85)] cursor-not-allowed opacity-80" />
+
+          {/* TAB 4: Empty Recessed Wood Slot (Matching image_abf9fae6.png) */}
+          <div className="relative h-full rounded-md bg-[#240e05]/90 border border-[#4a1c09] shadow-[inset_0_2px_4px_rgba(0,0,0,0.85)] cursor-not-allowed opacity-80" />
+        </div>
+      </div>
+
+      {/* 3. CABIN ILLUSTRATION SPACER (Shows the cabin frame baked into fondo_icespear_1.png) */}
+      <div className="relative z-10 w-full h-[14.5%] sm:h-[15%] min-h-[92px] max-h-[135px] shrink-0 pointer-events-none" />
+
+      {/* 4. MAIN CONTENT AREA ON WOODEN PLANKS */}
+      <div className="relative z-10 w-full flex-1 flex flex-col px-[4%] sm:px-[4.5%] pb-2 overflow-hidden min-h-0">
+        {/* PROGRESO DEL CAPITULO (Matching image_abf9fae6.png) */}
+        <div className="relative w-full rounded-2xl p-2 sm:p-2.5 bg-[#170803]/90 border-2 border-[#4a1c0b] shadow-[inset_0_2px_6px_rgba(0,0,0,0.7),0_3px_8px_rgba(0,0,0,0.7)] flex items-center justify-between gap-2.5 shrink-0 my-1">
+          <div className="flex-1 space-y-1">
+            <div className="flex items-center justify-between text-[10px] sm:text-[10.5px] font-black text-[#d6c2a5] tracking-wide uppercase">
+              <span>PROGRESO DEL CAPITULO</span>
+              <span className="font-mono text-[#d6c2a5] text-[10px] sm:text-[10.5px]">
+                {completedCount}/6
+              </span>
+            </div>
+
+            {/* Glowing Molten Progress Bar */}
+            <div className="relative w-full h-4 sm:h-4.5 rounded-full bg-[#0c0401] border border-[#521c08] p-0.5 overflow-hidden shadow-inner">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-[#dc2626] via-[#ea580c] to-[#f59e0b] shadow-[0_0_10px_rgba(245,158,11,0.8)] transition-all duration-500"
+                style={{ width: `${(completedCount / 6) * 100}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Treasure Chest (cofre_de_tintes_app.png) in recessed slot */}
+          <button
+            type="button"
+            onClick={handleClaimChest}
+            className="relative w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-[#120502] border-2 border-[#4a1c0b] flex items-center justify-center shrink-0 shadow-md cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+            title="Cofre de Recompensas de Icespear"
+          >
+            <img
+              src="/assets/items/cofre_de_tintes_app.png"
+              alt="Cofre"
+              className="w-8.5 h-8.5 sm:w-9 sm:h-9 object-contain drop-shadow-[0_0_8px_rgba(168,85,247,0.9)]"
+            />
+          </button>
         </div>
 
-        {/* Boss Reward Chest */}
-        <button
-          onClick={handleClaimChest}
-          className={`w-11 h-11 sm:w-12 sm:h-12 rounded-xl border-2 flex items-center justify-center cursor-pointer transition-transform relative group shrink-0 shadow-lg ${
-            completedCount >= 2 && !chestClaimed
-              ? 'bg-gradient-to-b from-[#6b21a8] to-[#3b0764] border-purple-400 animate-pulse hover:scale-105'
-              : 'bg-[#291307] border-[#5a2406] opacity-75'
-          }`}
-          title="Cofre de Recompensas del Capítulo"
+        {/* MISSIONS LIST (Matching exact separation & unified sizing from image_abf9fae6.png) */}
+        <div
+          ref={scrollContainerRef}
+          onPointerDown={handleContentPointerDown}
+          onPointerMove={handleContentPointerMove}
+          onPointerUp={handleContentPointerUp}
+          onPointerCancel={handleContentPointerUp}
+          onPointerLeave={handleContentPointerUp}
+          className="w-full flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden scroll-smooth flex flex-col gap-2.5 sm:gap-3 mt-1.5 pb-6 cursor-grab active:cursor-grabbing touch-pan-y"
         >
-          <Gift className={`w-6 h-6 ${completedCount >= 2 && !chestClaimed ? 'text-amber-300' : 'text-stone-500'}`} />
-          {completedCount >= 2 && !chestClaimed && (
-            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-600 text-white text-[8px] font-black flex items-center justify-center animate-ping">
-              !
-            </span>
-          )}
-        </button>
-      </div>
+          {/* MISSION 1: El Tirano de Hielo (COMPLETADA) - 25% less tall active card (98px) */}
+          <div className="relative w-full h-[98px] sm:h-[102px] rounded-xl overflow-hidden flex items-center px-3 sm:px-3.5 py-2 sm:py-2.5 shadow-md shrink-0 border border-[#783e18]/60">
+            {/* Background Parchment Banner (HISTORIA NIVEL BOTON.png) */}
+            <img
+              src="/assets/items/HISTORIA NIVEL BOTON.png"
+              alt=""
+              className="absolute inset-0 w-full h-full object-fill pointer-events-none select-none z-0"
+            />
 
-      {/* Mission Cards List (matching image_8afa574c.png) */}
-      <div className="space-y-2 flex-1 pb-4">
-        {missions.map((mission, index) => {
-          const isCompleted = questProgress.completedMissions.includes(mission.id);
-          const stars = questProgress.stars[mission.id] || 0;
-          const isUnlocked = index === 0 || questProgress.completedMissions.includes(missions[index - 1].id);
+            {/* Left: Captain Gabriel Portrait */}
+            <div className="relative z-10 w-[66px] h-[66px] sm:w-[70px] sm:h-[70px] rounded-lg overflow-hidden bg-[#160a04] border-2 border-[#54210c] shrink-0 shadow">
+              <img
+                src="/assets/portraits/capitan_gabriel_icono.png"
+                alt="Capitán Gabriel"
+                className="w-full h-full object-cover"
+              />
+            </div>
 
-          if (!isUnlocked) {
-            // Locked Mission Card (Silhouette + BLOQUEADO)
-            return (
-              <div
-                key={mission.id}
-                className="wood-panel rounded-xl p-3 border border-[#451a03] opacity-60 flex items-center justify-between"
+            {/* Center: Title & Description */}
+            <div className="relative z-10 flex-1 min-w-0 pl-3 pr-2 flex flex-col justify-center space-y-0.5 sm:space-y-1">
+              <h4 className="font-serif font-black text-xs sm:text-[13px] text-[#3d1908] truncate drop-shadow-[0_1px_0_rgba(255,255,255,0.4)]">
+                El Tirano de Hielo
+              </h4>
+              <p className="text-[9.5px] sm:text-[10px] text-[#4d240e] leading-snug font-medium line-clamp-2">
+                Un variopinto grupo de aventureros se reúne en Icespear...
+              </p>
+            </div>
+
+            {/* Right: COMPLETADA badge + Circular Checkmark Stamp */}
+            <div className="relative z-10 flex flex-col items-center justify-center shrink-0 pl-1 space-y-1">
+              <span className="px-2 py-0.5 rounded text-[8px] sm:text-[8.5px] font-black uppercase tracking-wider text-[#2d421e] bg-[#97a883]/60 border border-[#6b7d58] shadow-inner leading-tight whitespace-nowrap">
+                COMPLETADA
+              </span>
+              <img
+                src="/assets/items/recurso_1_4x_1.png"
+                alt="Completada"
+                className="w-7 h-7 sm:w-8 sm:h-8 object-contain drop-shadow"
+              />
+            </div>
+          </div>
+
+          {/* MISSION 2: Robo no tan Justo (ACTIVE / IN PROGRESS - CONTINUAR) - 25% less tall active card (98px) */}
+          <div className="relative w-full h-[98px] sm:h-[102px] rounded-xl overflow-hidden flex items-center px-3 sm:px-3.5 py-2 sm:py-2.5 shadow-md shrink-0 border border-[#783e18]/60">
+            {/* Background Parchment Banner (HISTORIA NIVEL BOTON.png) */}
+            <img
+              src="/assets/items/HISTORIA NIVEL BOTON.png"
+              alt=""
+              className="absolute inset-0 w-full h-full object-fill pointer-events-none select-none z-0"
+            />
+
+            {/* Left: Captain Gabriel Portrait */}
+            <div className="relative z-10 w-[66px] h-[66px] sm:w-[70px] sm:h-[70px] rounded-lg overflow-hidden bg-[#160a04] border-2 border-[#54210c] shrink-0 shadow">
+              <img
+                src="/assets/portraits/capitan_gabriel_icono.png"
+                alt="Capitán Gabriel"
+                className="w-full h-full object-cover"
+              />
+            </div>
+
+            {/* Center: Title, Description & Green Difficulty Label */}
+            <div className="relative z-10 flex-1 min-w-0 pl-3 pr-2 flex flex-col justify-center space-y-0.5 sm:space-y-1">
+              <h4 className="font-serif font-black text-xs sm:text-[13px] text-[#3d1908] truncate drop-shadow-[0_1px_0_rgba(255,255,255,0.4)]">
+                Robo no tan Justo
+              </h4>
+              <p className="text-[9.5px] sm:text-[10px] text-[#4d240e] leading-snug font-medium line-clamp-2">
+                Sin dinero y con nueva misión, Caldo de Dragón planea un...
+              </p>
+              <span className="text-[9px] sm:text-[9.5px] font-black text-[#15803d] tracking-wide leading-none pt-0.5">
+                Facil
+              </span>
+            </div>
+
+            {/* Right: 3 Bronze Stars + CONTINUAR Button */}
+            <div className="relative z-10 flex flex-col items-center justify-center shrink-0 pl-1 space-y-1">
+              <div className="flex items-center gap-0.5">
+                <img
+                  src={
+                    questProgress.completedMissions.includes('m2_robo')
+                      ? '/assets/items/estrella_mejora.png'
+                      : '/assets/items/estrella_bronce.png'
+                  }
+                  alt="Estrella 1"
+                  className="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain drop-shadow"
+                />
+                <img
+                  src={
+                    questProgress.completedMissions.includes('m2_robo')
+                      ? '/assets/items/estrella_mejora.png'
+                      : '/assets/items/estrella_bronce.png'
+                  }
+                  alt="Estrella 2"
+                  className="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain drop-shadow"
+                />
+                <img
+                  src={
+                    questProgress.completedMissions.includes('m2_robo')
+                      ? '/assets/items/estrella_mejora.png'
+                      : '/assets/items/estrella_bronce.png'
+                  }
+                  alt="Estrella 3"
+                  className="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain drop-shadow"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleLaunchCombat(missions[1])}
+                className="px-3.5 py-1 sm:px-4 sm:py-1.5 rounded-md bg-gradient-to-b from-[#f97316] to-[#c2410c] border border-[#ea580c] text-white text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider shadow hover:brightness-110 active:scale-95 transition-all cursor-pointer whitespace-nowrap"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg bg-[#140803] border border-[#3b170c] flex items-center justify-center text-stone-600">
-                    <Lock className="w-5 h-5 text-stone-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-serif font-black text-xs text-stone-500">???</h4>
-                    <p className="text-[10px] text-stone-600">Misión desconocida</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 text-red-500/80 font-bold text-xs uppercase tracking-wider">
-                  <span>BLOQUEADO</span>
-                  <Lock className="w-3.5 h-3.5" />
-                </div>
-              </div>
-            );
-          }
-
-          return (
-            <div
-              key={mission.id}
-              className="parchment-sheet rounded-xl p-3 border-2 border-[#78350f] shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-stone-900 relative"
-            >
-              {/* Mission Details */}
-              <div className="flex items-start gap-3 min-w-0 flex-1">
-                <div className="w-12 h-12 rounded-lg overflow-hidden border-2 border-[#78350f] shrink-0 shadow-md bg-stone-900">
-                  <img src={mission.portrait} alt="" className="w-full h-full object-cover" />
-                </div>
-                <div className="min-w-0 flex-1 space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-serif font-black text-xs sm:text-sm text-[#451a03] truncate">
-                      {mission.title}
-                    </h4>
-                  </div>
-                  <p className="text-[10px] text-[#54210c] leading-tight line-clamp-2">
-                    {mission.description}
-                  </p>
-                  <span className="inline-block text-[9px] font-bold text-emerald-800">
-                    {mission.difficulty}
-                  </span>
-                </div>
-              </div>
-
-              {/* Status / Actions Column */}
-              <div className="flex sm:flex-col items-center justify-between w-full sm:w-auto gap-2 shrink-0">
-                {isCompleted ? (
-                  <div className="flex flex-col items-center gap-1">
-                    {/* Green Stamped Badge: COMPLETADA */}
-                    <div className="px-2 py-0.5 rounded bg-emerald-700/80 border border-emerald-900 text-emerald-100 font-serif font-black text-[9px] tracking-wider uppercase shadow-sm">
-                      COMPLETADA
-                    </div>
-                    {/* Green Circle Checkmark */}
-                    <div className="w-6 h-6 rounded-full bg-emerald-600 border-2 border-emerald-800 flex items-center justify-center text-white shadow-sm">
-                      <Check className="w-3.5 h-3.5 stroke-[3]" />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center sm:items-end gap-1.5 w-full sm:w-auto">
-                    {/* 3 Stars */}
-                    <div className="flex items-center gap-0.5 text-amber-700">
-                      {[1, 2, 3].map((s) => (
-                        <Star
-                          key={s}
-                          className={`w-3.5 h-3.5 ${
-                            stars >= s
-                              ? 'text-yellow-600 fill-yellow-500'
-                              : 'text-stone-400 fill-stone-300'
-                          }`}
-                        />
-                      ))}
-                    </div>
-
-                    {/* Orange Action Button: CONTINUAR */}
-                    <button
-                      onClick={() => handleLaunchCombat(mission)}
-                      className="w-full sm:w-auto px-4 py-1.5 rounded-lg bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-stone-950 font-black text-xs uppercase tracking-wider shadow-md border border-amber-300 cursor-pointer active:scale-95 transition-all flex items-center justify-center gap-1"
-                    >
-                      <span>CONTINUAR</span>
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
-              </div>
+                CONTINUAR
+              </button>
             </div>
-          );
-        })}
+          </div>
+
+          {/* MISSION 3: ??? (LOCKED - BLOQUEADO) - Exact same height, width, and avatar frame */}
+          <div className="relative w-full h-[90px] sm:h-[94px] rounded-xl overflow-hidden flex items-center px-3 sm:px-3.5 py-2 bg-[#180a04]/90 border border-[#3b170c] shadow-inner opacity-90 shrink-0">
+            {/* Left: Silhouette Avatar with CANDADO.png */}
+            <div className="relative w-14 h-14 sm:w-15 sm:h-15 rounded-lg overflow-hidden bg-[#0c0402] border-2 border-[#381406] shrink-0 shadow-inner flex items-center justify-center">
+              <div className="w-7 h-7 rounded-full bg-[#1c0a03] mb-1.5" />
+              <div className="absolute bottom-0.5 w-9 h-4.5 rounded-t-full bg-[#1c0a03]" />
+              <img
+                src="/assets/items/CANDADO.png"
+                alt="Bloqueado"
+                className="absolute w-5 h-5.5 object-contain drop-shadow"
+              />
+            </div>
+
+            {/* Center: Hidden Title & Subtitle */}
+            <div className="relative flex-1 min-w-0 pl-3 flex flex-col justify-center space-y-0.5">
+              <h4 className="font-serif font-black text-xs sm:text-[13px] text-stone-300">???</h4>
+              <p className="text-[9px] sm:text-[9.5px] text-stone-400 font-medium">Misión desconocida</p>
+            </div>
+
+            {/* Right: Red BLOQUEADO label + CANDADO.png */}
+            <div className="relative flex items-center gap-1.5 pr-1.5 shrink-0">
+              <span className="text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider text-[#ef4444] drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]">
+                BLOQUEADO
+              </span>
+              <img
+                src="/assets/items/CANDADO.png"
+                alt="Bloqueado"
+                className="w-4 h-4.5 object-contain drop-shadow"
+              />
+            </div>
+          </div>
+
+          {/* MISSION 4: ??? (LOCKED - BLOQUEADO) - Exact same height, width, and avatar frame */}
+          <div className="relative w-full h-[90px] sm:h-[94px] rounded-xl overflow-hidden flex items-center px-3 sm:px-3.5 py-2 bg-[#180a04]/90 border border-[#3b170c] shadow-inner opacity-90 shrink-0">
+            <div className="relative w-14 h-14 sm:w-15 sm:h-15 rounded-lg overflow-hidden bg-[#0c0402] border-2 border-[#381406] shrink-0 shadow-inner flex items-center justify-center">
+              <div className="w-7 h-7 rounded-full bg-[#1c0a03] mb-1.5" />
+              <div className="absolute bottom-0.5 w-9 h-4.5 rounded-t-full bg-[#1c0a03]" />
+              <img
+                src="/assets/items/CANDADO.png"
+                alt="Bloqueado"
+                className="absolute w-5 h-5.5 object-contain drop-shadow"
+              />
+            </div>
+
+            <div className="relative flex-1 min-w-0 pl-3 flex flex-col justify-center space-y-0.5">
+              <h4 className="font-serif font-black text-xs sm:text-[13px] text-stone-300">???</h4>
+              <p className="text-[9px] sm:text-[9.5px] text-stone-400 font-medium">Misión desconocida</p>
+            </div>
+
+            <div className="relative flex items-center gap-1.5 pr-1.5 shrink-0">
+              <span className="text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider text-[#ef4444] drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]">
+                BLOQUEADO
+              </span>
+              <img
+                src="/assets/items/CANDADO.png"
+                alt="Bloqueado"
+                className="w-4 h-4.5 object-contain drop-shadow"
+              />
+            </div>
+          </div>
+
+          {/* MISSION 5: ??? (LOCKED - BLOQUEADO) - Exact same height, width, and avatar frame */}
+          <div className="relative w-full h-[90px] sm:h-[94px] rounded-xl overflow-hidden flex items-center px-3 sm:px-3.5 py-2 bg-[#180a04]/90 border border-[#3b170c] shadow-inner opacity-85 shrink-0">
+            <div className="relative w-14 h-14 sm:w-15 sm:h-15 rounded-lg overflow-hidden bg-[#0c0402] border-2 border-[#381406] shrink-0 shadow-inner flex items-center justify-center">
+              <div className="w-7 h-7 rounded-full bg-[#1c0a03] mb-1.5" />
+              <div className="absolute bottom-0.5 w-9 h-4.5 rounded-t-full bg-[#1c0a03]" />
+              <img
+                src="/assets/items/CANDADO.png"
+                alt="Bloqueado"
+                className="absolute w-5 h-5.5 object-contain drop-shadow"
+              />
+            </div>
+
+            <div className="relative flex-1 min-w-0 pl-3 flex flex-col justify-center space-y-0.5">
+              <h4 className="font-serif font-black text-xs sm:text-[13px] text-stone-300">???</h4>
+              <p className="text-[9px] sm:text-[9.5px] text-stone-400 font-medium">Misión desconocida</p>
+            </div>
+
+            <div className="relative flex items-center gap-1.5 pr-1.5 shrink-0">
+              <span className="text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider text-[#ef4444] drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]">
+                BLOQUEADO
+              </span>
+              <img
+                src="/assets/items/CANDADO.png"
+                alt="Bloqueado"
+                className="w-4 h-4.5 object-contain drop-shadow"
+              />
+            </div>
+          </div>
+
+          {/* MISSION 6: ??? (LOCKED - BLOQUEADO) - Exact same height, width, and avatar frame */}
+          <div className="relative w-full h-[90px] sm:h-[94px] rounded-xl overflow-hidden flex items-center px-3 sm:px-3.5 py-2 bg-[#180a04]/90 border border-[#3b170c] shadow-inner opacity-85 shrink-0">
+            <div className="relative w-14 h-14 sm:w-15 sm:h-15 rounded-lg overflow-hidden bg-[#0c0402] border-2 border-[#381406] shrink-0 shadow-inner flex items-center justify-center">
+              <div className="w-7 h-7 rounded-full bg-[#1c0a03] mb-1.5" />
+              <div className="absolute bottom-0.5 w-9 h-4.5 rounded-t-full bg-[#1c0a03]" />
+              <img
+                src="/assets/items/CANDADO.png"
+                alt="Bloqueado"
+                className="absolute w-5 h-5.5 object-contain drop-shadow"
+              />
+            </div>
+
+            <div className="relative flex-1 min-w-0 pl-3 flex flex-col justify-center space-y-0.5">
+              <h4 className="font-serif font-black text-xs sm:text-[13px] text-stone-300">???</h4>
+              <p className="text-[9px] sm:text-[9.5px] text-stone-400 font-medium">Misión desconocida</p>
+            </div>
+
+            <div className="relative flex items-center gap-1.5 pr-1.5 shrink-0">
+              <span className="text-[10px] sm:text-[10.5px] font-black uppercase tracking-wider text-[#ef4444] drop-shadow-[0_1px_1px_rgba(0,0,0,0.9)]">
+                BLOQUEADO
+              </span>
+              <img
+                src="/assets/items/CANDADO.png"
+                alt="Bloqueado"
+                className="w-4 h-4.5 object-contain drop-shadow"
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Chapter Reward Modal */}
+      {/* 5. CHEST REWARD MODAL */}
       {showChestModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-xs p-4">
-          <div className="wood-frame max-w-sm w-full p-5 rounded-2xl space-y-4 text-center border-2 border-amber-700 shadow-2xl animate-fade-in">
-            <div className="w-14 h-14 mx-auto rounded-full bg-purple-950/80 border-2 border-purple-500 flex items-center justify-center text-amber-300 shadow-lg">
-              <Sparkles className="w-7 h-7" />
-            </div>
-            <h3 className="font-serif font-black text-lg text-amber-200">
-              ¡Cofre del Capítulo Reclamado!
-            </h3>
-            <p className="text-xs text-stone-300 leading-relaxed">
-              Has recibido recompensas de botín por tu avance en el Capítulo I de Icespear:
-            </p>
-            <div className="bg-[#1b0a04] border border-[#521c08] rounded-xl p-3 flex justify-around font-mono font-bold text-sm">
-              <span className="text-amber-400">+10,000 Oro</span>
-              <span className="text-cyan-400">+500 Cristales</span>
-            </div>
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowChestModal(false);
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4 select-none animate-fade-in"
+        >
+          <div className="relative w-full max-w-xs bg-[#240c03] border-4 border-[#78350f] rounded-2xl p-4 text-center text-stone-200 shadow-2xl space-y-3">
             <button
+              type="button"
               onClick={() => setShowChestModal(false)}
-              className="w-full py-2 bg-gradient-to-r from-amber-600 to-amber-500 text-black font-bold text-xs rounded-xl shadow cursor-pointer"
+              className="absolute top-2.5 right-2.5 text-stone-400 hover:text-white"
             >
-              ¡Excelente!
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex justify-center pt-2">
+              <img
+                src="/assets/items/cofre_de_tintes_app.png"
+                alt="Cofre de Icespear"
+                className="w-20 h-20 object-contain drop-shadow-[0_0_15px_rgba(168,85,247,0.9)]"
+              />
+            </div>
+
+            <h3 className="font-serif font-black text-base uppercase text-amber-300 drop-shadow">
+              ¡Cofre de Icespear Reclamado!
+            </h3>
+
+            <p className="text-xs text-stone-300">
+              Has recibido las recompensas por tu avance en el Capítulo I:
+            </p>
+
+            <div className="flex items-center justify-center gap-4 py-2 bg-[#140602] rounded-lg border border-amber-900/60">
+              <div className="flex items-center gap-1.5 text-xs font-black text-amber-400 font-mono">
+                <span>+15,000</span>
+                <span className="text-[10px] text-amber-200">ORO</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-xs font-black text-sky-400 font-mono">
+                <span>+500</span>
+                <span className="text-[10px] text-sky-200">GEMAS</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowChestModal(false)}
+              className="w-full py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:brightness-110 text-white font-black rounded-lg text-xs uppercase tracking-wider cursor-pointer shadow-lg active:scale-95 transition-transform"
+            >
+              Aceptar
             </button>
           </div>
         </div>

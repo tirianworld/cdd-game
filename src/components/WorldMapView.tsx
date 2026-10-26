@@ -1,105 +1,351 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useGame } from '../context/GameContext';
 import { sound } from '../services/soundService';
-import { MapPin, Swords, X } from 'lucide-react';
+import { Swords, X, Compass, ZoomIn, ZoomOut, Move, Shield } from 'lucide-react';
 
-interface MapRegion {
+interface MapInteractiveLocation {
   id: string;
   name: string;
+  subtitle: string;
+  typeBadge: string;
+  badgeStyle: string;
   description: string;
-  top: string;
-  left: string;
+  top: string; // percentage string
+  left: string; // percentage string
+  widthPercent: number; // width relative to map canvas
+  aspectRatio: string;
+  imageSrc: string;
+  actionLabel: string;
   action: () => void;
-  btnLabel: string;
 }
 
 export const WorldMapView: React.FC = () => {
   const { navigateTo, setSelectedCombatMissionId } = useGame();
-  const [selectedRegion, setSelectedRegion] = useState<MapRegion | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<MapInteractiveLocation | null>(null);
 
-  const regions: MapRegion[] = [
+  // Zoom scale state (1.0 = native fitted height)
+  const [zoomLevel, setZoomLevel] = useState<number>(1.0);
+  const [hasInteracted, setHasInteracted] = useState(false);
+
+  // Base dimensions matching icespear_map_8551bb2c (2048 x 1255 ratio = 1.6318)
+  const baseWidth = 1224;
+  const baseHeight = 750;
+  const mapWidth = Math.round(baseWidth * zoomLevel);
+  const mapHeight = Math.round(baseHeight * zoomLevel);
+
+  // Container & Pan state
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [containerSize, setContainerSize] = useState({ width: 412, height: 750 });
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+
+  // Drag tracking refs
+  const isDraggingRef = useRef(false);
+  const pointerStartRef = useRef({ x: 0, y: 0 });
+  const panStartRef = useRef({ x: 0, y: 0 });
+  const dragDistanceRef = useRef(0);
+
+  // Update container size on mount / resize
+  useEffect(() => {
+    const updateSize = () => {
+      if (containerRef.current) {
+        setContainerSize({
+          width: containerRef.current.clientWidth || 412,
+          height: containerRef.current.clientHeight || 750,
+        });
+      }
+    };
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
+
+  // Clamping helper
+  const clampPan = useCallback(
+    (x: number, y: number, currentMapW: number, currentMapH: number) => {
+      const minX = Math.min(0, containerSize.width - currentMapW);
+      const minY = Math.min(0, containerSize.height - currentMapH);
+      const clampedX = Math.min(0, Math.max(minX, x));
+      const clampedY = Math.min(0, Math.max(minY, y));
+      return { x: clampedX, y: clampedY };
+    },
+    [containerSize.width, containerSize.height]
+  );
+
+  // Center on Aldea & Santuario village
+  const centerOnSantuario = useCallback(
+    (currentMapW = mapWidth, currentMapH = mapHeight) => {
+      // Aldea is located around left: 59.2%, top: 57.5%
+      const villageX = currentMapW * 0.592;
+      const villageY = currentMapH * 0.575;
+      const targetX = -(villageX - containerSize.width / 2);
+      const targetY = -(villageY - containerSize.height / 2);
+      setPan(clampPan(targetX, targetY, currentMapW, currentMapH));
+    },
+    [containerSize.width, containerSize.height, mapWidth, mapHeight, clampPan]
+  );
+
+  // Initialize position centered on Aldea village on load
+  useEffect(() => {
+    centerOnSantuario();
+  }, [containerSize.width, containerSize.height]);
+
+  // Pointer event handlers for drag-to-pan
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest('.map-control-btn')) {
+      return;
+    }
+    try {
+      (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    } catch {
+      // Ignore if pointer capture fails
+    }
+    isDraggingRef.current = true;
+    dragDistanceRef.current = 0;
+    pointerStartRef.current = { x: e.clientX, y: e.clientY };
+    panStartRef.current = { x: pan.x, y: pan.y };
+    setIsDragging(true);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDraggingRef.current) return;
+    const dx = e.clientX - pointerStartRef.current.x;
+    const dy = e.clientY - pointerStartRef.current.y;
+    dragDistanceRef.current = Math.hypot(dx, dy);
+
+    if (dragDistanceRef.current > 8 && !hasInteracted) {
+      setHasInteracted(true);
+    }
+
+    const nextX = panStartRef.current.x + dx;
+    const nextY = panStartRef.current.y + dy;
+    setPan(clampPan(nextX, nextY, mapWidth, mapHeight));
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+    setIsDragging(false);
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
+    } catch {
+      // Ignore
+    }
+  };
+
+  // Zoom handlers
+  const handleZoomIn = () => {
+    sound.playSFX('click');
+    const newZoom = Math.min(2.0, Number((zoomLevel + 0.25).toFixed(2)));
+    setZoomLevel(newZoom);
+    const newW = Math.round(baseWidth * newZoom);
+    const newH = Math.round(baseHeight * newZoom);
+    setPan((prev) => {
+      const ratio = newZoom / zoomLevel;
+      return clampPan(prev.x * ratio, prev.y * ratio, newW, newH);
+    });
+  };
+
+  const handleZoomOut = () => {
+    sound.playSFX('click');
+    const newZoom = Math.max(0.85, Number((zoomLevel - 0.25).toFixed(2)));
+    setZoomLevel(newZoom);
+    const newW = Math.round(baseWidth * newZoom);
+    const newH = Math.round(baseHeight * newZoom);
+    setPan((prev) => {
+      const ratio = newZoom / zoomLevel;
+      return clampPan(prev.x * ratio, prev.y * ratio, newW, newH);
+    });
+  };
+
+  const handleLocationClick = (loc: MapInteractiveLocation) => {
+    // If the user was dragging the map, ignore click to prevent accidental modal openings
+    if (dragDistanceRef.current > 8) return;
+    sound.playSFX('click');
+    setSelectedLocation(loc);
+  };
+
+  // Interactive locations positioned over the authentic map features
+  const locations: MapInteractiveLocation[] = [
     {
-      id: 'icespear_peak',
-      name: 'Pico Glacial de Icespear',
-      description: 'Cumbres nevadas donde anidan los dracos de hielo. Nivel de amenaza alto.',
-      top: '26%',
-      left: '38%',
-      btnLabel: 'Ir a Misión de Asedio',
+      id: 'cuevas_de_icespear',
+      name: 'Cuevas de Icespear',
+      subtitle: 'Bastión Subterráneo de la Cumbre',
+      typeBadge: 'Peligro Alto • Mazmorra Glacial',
+      badgeStyle: 'bg-red-950/80 border-red-500/70 text-red-200',
+      description:
+        'Antiguas galerías mineras fortificadas en la cumbre nevada de la cordillera. Monstruos y vetas de cristales gélidos aguardan en sus oscuras profundidades.',
+      top: '27.5%',
+      left: '65.5%',
+      widthPercent: 12,
+      aspectRatio: '136 / 97',
+      imageSrc: '/assets/backgrounds/cuevas_de_icespear.png',
+      actionLabel: 'Explorar Mazmorra',
       action: () => {
         setSelectedCombatMissionId('m2_robo');
         navigateTo('quest');
       },
     },
     {
-      id: 'sacred_grove',
-      name: 'Templo del Bosque Ancestral',
-      description: 'Santuario de la Hermandad del Manantial oculto entre los robles milenarios.',
-      top: '46%',
-      left: '60%',
-      btnLabel: 'Inspeccionar',
+      id: 'emboscada_de_bandidos',
+      name: 'Emboscada de Bandidos',
+      subtitle: 'Cruce del Río & Camino Forestal',
+      typeBadge: 'Encuentro Activo • Asalto en Ruta',
+      badgeStyle: 'bg-amber-950/80 border-amber-500/70 text-amber-200',
+      description:
+        'Un destacamento de forajidos ha volcado una carreta de víveres en el vado del río y asedia a los mercaderes. ¡Despeja la ruta comercial para asegurar provisiones!',
+      top: '51.5%',
+      left: '39.5%',
+      widthPercent: 10,
+      aspectRatio: '1211 / 864',
+      imageSrc: '/assets/backgrounds/emboscada_de_bandidos.png',
+      actionLabel: 'Combatir Bandidos',
       action: () => {
-        navigateTo('heroes');
+        setSelectedCombatMissionId('m1_patrulla');
+        navigateTo('quest');
       },
     },
     {
-      id: 'village',
-      name: 'Aldea y Santuario de Icespear',
-      description: 'Tu campamento base, herrería y taberna.',
-      top: '63%',
-      left: '12%',
-      btnLabel: 'Entrar al Santuario',
+      id: 'aldea_icespear',
+      name: 'Aldea de Icespear',
+      subtitle: 'Santuario Principal & Campamento',
+      typeBadge: 'Zona Segura • Refugio, Forja & Taberna',
+      badgeStyle: 'bg-emerald-950/80 border-emerald-500/70 text-emerald-200',
+      description:
+        'El corazón del asentamiento helado bajo la sombra del castillo. Aquí se ubican el Gran Santuario, la Forja rúnica del enano y la acogedora Taberna de Arlem.',
+      top: '57.5%',
+      left: '59.2%',
+      widthPercent: 11,
+      aspectRatio: '1 / 1',
+      imageSrc: '/assets/backgrounds/icespear_icono_inkarnate.png',
+      actionLabel: 'Entrar al Santuario',
       action: () => {
         navigateTo('santuario');
-      },
-    },
-    {
-      id: 'frozen_lake',
-      name: 'Lago Helado & Torre Centinela',
-      description: 'Puesto avanzado para vigilar incursiones de los ejércitos de ceniza.',
-      top: '82%',
-      left: '22%',
-      btnLabel: 'Ver Patrullas',
-      action: () => {
-        navigateTo('patrol');
       },
     },
   ];
 
   return (
-    <div className="relative w-full h-full min-h-[580px] flex-1 flex flex-col justify-between overflow-hidden select-none">
-      {/* World Map Artwork */}
-      <img
-        src="/assets/aistudio/image_32bad5db.png"
-        alt="Mapa del Mundo"
-        className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none"
-      />
+    <div
+      ref={containerRef}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      style={{ touchAction: 'none' }}
+      className={`relative w-full h-full min-h-[580px] flex-1 overflow-hidden select-none touch-none bg-[#101413] ${
+        isDragging ? 'cursor-grabbing' : 'cursor-grab'
+      }`}
+    >
+      {/* Draggable Map Plane (New Artwork + Static Interactive Locations) */}
+      <div
+        style={{
+          width: `${mapWidth}px`,
+          height: `${mapHeight}px`,
+          transform: `translate3d(${pan.x}px, ${pan.y}px, 0)`,
+          transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)',
+        }}
+        className="relative will-change-transform pointer-events-auto"
+      >
+        {/* World Map Artwork from user: icespear_map_8551bb2c.jpg */}
+        <img
+          src="/assets/aistudio/icespear_map_8551bb2c.jpg"
+          alt="Mapa del Mundo Icespear"
+          draggable={false}
+          className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
+        />
 
-      {/* Map Interactive Nodes */}
-      <div className="relative z-10 flex-1 w-full">
-        {regions.map((region) => (
-          <button
-            key={region.id}
-            onClick={() => {
-              sound.playSFX('click');
-              setSelectedRegion(region);
-            }}
-            style={{ top: region.top, left: region.left }}
-            className="absolute -translate-x-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-amber-500/20 border-2 border-amber-400 hover:scale-125 transition-all flex items-center justify-center cursor-pointer group shadow-lg"
-          >
-            <div className="w-3 h-3 rounded-full bg-amber-400 group-hover:bg-yellow-200 animate-ping absolute" />
-            <MapPin className="w-4 h-4 text-amber-300 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]" />
-          </button>
-        ))}
+        {/* Interactive Static Locations Layer (No floating animations) */}
+        <div className="absolute inset-0 pointer-events-auto">
+          {locations.map((loc) => (
+            <button
+              key={loc.id}
+              onClick={() => handleLocationClick(loc)}
+              style={{
+                top: loc.top,
+                left: loc.left,
+                width: `${loc.widthPercent}%`,
+              }}
+              className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer group focus:outline-none z-10 flex flex-col items-center"
+              title={loc.name}
+            >
+              {/* Illustrated Icon (Completely static, no bobbing or pulsing) */}
+              <div
+                style={{ aspectRatio: loc.aspectRatio }}
+                className="relative w-full transition-transform duration-150 group-hover:scale-110 group-active:scale-95"
+              >
+                <img
+                  src={loc.imageSrc}
+                  alt={loc.name}
+                  draggable={false}
+                  className="w-full h-full object-contain pointer-events-none select-none drop-shadow-[0_4px_14px_rgba(0,0,0,0.95)]"
+                />
+              </div>
+
+              {/* Static Medieval RPG Location Ribbon / Banner */}
+              <div className="mt-1 whitespace-nowrap bg-[#1a0a05]/95 border border-amber-500/80 group-hover:border-amber-300 text-amber-200 group-hover:text-amber-100 text-[10px] font-serif font-black px-2.5 py-0.5 rounded shadow-xl backdrop-blur-xs flex items-center gap-1.5 transition-colors pointer-events-none">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                <span>{loc.name}</span>
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Bottom Right: Authentic Circular SANTUARIO Cabin Button */}
-      <div className="relative z-20 self-end p-2 sm:p-3">
+      {/* Exploration Hint Banner (Static, no bounce or pulse) */}
+      {!hasInteracted && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+          <div className="bg-black/85 backdrop-blur-xs border border-amber-500/80 text-amber-200 text-[11px] font-bold px-3 py-1 rounded-full shadow-2xl flex items-center gap-1.5">
+            <Move className="w-3.5 h-3.5 text-amber-400" />
+            <span>Pulsa y arrastra para explorar el mapa</span>
+          </div>
+        </div>
+      )}
+
+      {/* Map Control Tools: Recenter & Zoom */}
+      <div className="absolute top-3 right-3 z-20 flex flex-col gap-1.5 pointer-events-auto">
         <button
+          onPointerDown={(e) => e.stopPropagation()}
           onClick={() => {
+            sound.playSFX('click');
+            centerOnSantuario();
+          }}
+          className="map-control-btn w-8 h-8 rounded-lg bg-stone-900/85 hover:bg-stone-800 border border-amber-500/60 shadow-lg text-amber-300 flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+          title="Centrar en Aldea de Icespear"
+        >
+          <Compass className="w-4 h-4" />
+        </button>
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={handleZoomIn}
+          disabled={zoomLevel >= 2.0}
+          className="map-control-btn w-8 h-8 rounded-lg bg-stone-900/85 hover:bg-stone-800 border border-amber-500/60 shadow-lg text-amber-300 flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Acercar mapa"
+        >
+          <ZoomIn className="w-4 h-4" />
+        </button>
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={handleZoomOut}
+          disabled={zoomLevel <= 0.85}
+          className="map-control-btn w-8 h-8 rounded-lg bg-stone-900/85 hover:bg-stone-800 border border-amber-500/60 shadow-lg text-amber-300 flex items-center justify-center cursor-pointer hover:scale-105 active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Alejar mapa"
+        >
+          <ZoomOut className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Bottom Right: Circular SANTUARIO Cabin Button */}
+      <div className="absolute bottom-2.5 right-2.5 z-20 pointer-events-auto">
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
             sound.playSFX('click');
             navigateTo('santuario');
           }}
-          className="group relative flex flex-col items-center cursor-pointer hover:scale-106 active:scale-95 transition-transform"
+          className="map-control-btn group relative flex flex-col items-center cursor-pointer hover:scale-106 active:scale-95 transition-transform"
           title="Volver al Santuario"
         >
           <img
@@ -110,39 +356,69 @@ export const WorldMapView: React.FC = () => {
         </button>
       </div>
 
-      {/* Region Info Popover Modal */}
-      {selectedRegion && (
+      {/* Location Details Fantasy Popover Modal */}
+      {selectedLocation && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-xs p-4">
-          <div className="wood-frame max-w-xs w-full p-5 rounded-2xl space-y-3 text-center border-2 border-amber-700 shadow-2xl">
-            <div className="flex items-center justify-between pb-1 border-b border-amber-900/60">
-              <span className="text-amber-200 font-serif font-black text-sm">
-                {selectedRegion.name}
-              </span>
+          <div className="wood-frame max-w-xs w-full p-5 rounded-2xl space-y-3.5 text-center border-2 border-amber-600/80 shadow-[0_0_35px_rgba(0,0,0,0.95)] animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-2 border-b border-amber-900/60">
+              <div className="flex flex-col text-left">
+                <span className="text-amber-200 font-serif font-black text-sm">
+                  {selectedLocation.name}
+                </span>
+                <span className="text-[10px] text-stone-400 font-mono">
+                  {selectedLocation.subtitle}
+                </span>
+              </div>
               <button
-                onClick={() => setSelectedRegion(null)}
-                className="text-stone-400 hover:text-white"
+                onClick={() => setSelectedLocation(null)}
+                className="text-stone-400 hover:text-white p-1 rounded hover:bg-stone-800/60 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-xs text-stone-300 leading-relaxed text-left">
-              {selectedRegion.description}
+
+            {/* Location Illustration Preview (Static) */}
+            <div className="relative w-full h-28 bg-[#160703] rounded-xl border border-amber-800/60 flex items-center justify-center overflow-hidden p-2">
+              <div className="absolute inset-0 bg-radial from-amber-500/15 to-transparent pointer-events-none" />
+              <img
+                src={selectedLocation.imageSrc}
+                alt={selectedLocation.name}
+                className="max-h-full max-w-full object-contain filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)]"
+              />
+            </div>
+
+            {/* Type & Threat Badge */}
+            <div className="flex justify-center">
+              <span
+                className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 shadow-sm ${selectedLocation.badgeStyle}`}
+              >
+                <Shield className="w-3 h-3" />
+                {selectedLocation.typeBadge}
+              </span>
+            </div>
+
+            {/* Atmospheric Lore Description */}
+            <p className="text-xs text-stone-300 leading-relaxed text-left bg-black/30 p-2.5 rounded-lg border border-amber-950/40">
+              {selectedLocation.description}
             </p>
-            <div className="flex items-center gap-2 pt-2">
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 pt-1">
               <button
                 onClick={() => {
                   sound.playSFX('click');
-                  selectedRegion.action();
-                  setSelectedRegion(null);
+                  selectedLocation.action();
+                  setSelectedLocation(null);
                 }}
-                className="flex-1 py-2 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-stone-950 font-black text-xs rounded-lg shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                className="flex-1 py-2.5 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-stone-950 font-black text-xs rounded-xl shadow-lg cursor-pointer flex items-center justify-center gap-1.5 transition-transform active:scale-95"
               >
-                <Swords className="w-3.5 h-3.5" />
-                <span>{selectedRegion.btnLabel}</span>
+                <Swords className="w-4 h-4" />
+                <span>{selectedLocation.actionLabel}</span>
               </button>
               <button
-                onClick={() => setSelectedRegion(null)}
-                className="py-2 px-3 bg-stone-800 hover:bg-stone-700 text-stone-300 font-bold text-xs rounded-lg cursor-pointer"
+                onClick={() => setSelectedLocation(null)}
+                className="py-2.5 px-3 bg-stone-800 hover:bg-stone-700 text-stone-300 font-bold text-xs rounded-xl cursor-pointer transition-colors"
               >
                 Cerrar
               </button>

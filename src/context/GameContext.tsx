@@ -132,8 +132,14 @@ const DEFAULT_MAIL: MailItem[] = [
 const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentTab, setCurrentTab] = useState<string>('santuario');
-  const [historyStack, setHistoryStack] = useState<string[]>(['santuario']);
+  const [currentTab, setCurrentTab] = useState<string>(() => {
+    return safeGetJSON<string>(`${STORAGE_KEY}_current_tab`, 'quest');
+  });
+  const [historyStack, setHistoryStack] = useState<string[]>(['quest']);
+
+  useEffect(() => {
+    safeStorage.setItem(`${STORAGE_KEY}_current_tab`, JSON.stringify(currentTab));
+  }, [currentTab]);
 
   const [playerName, setPlayerName] = useState<string>(() => {
     return safeGetJSON<string>(`${STORAGE_KEY}_player_name`, 'Zer0_NadA');

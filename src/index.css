@@ -34,3 +34,44 @@
     box-shadow: inset 0 0 8px rgba(90, 50, 15, 0.35);
   }
 }
+
+@keyframes mapBobSlow {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes mapBobMid {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes mapGlowPulse {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.85;
+    transform: scale(1.10);
+  }
+}
+
+.animate-map-bob-slow {
+  animation: mapBobSlow 3.6s ease-in-out infinite;
+}
+
+.animate-map-bob-mid {
+  animation: mapBobMid 2.9s ease-in-out infinite;
+}
+
+.animate-map-glow {
+  animation: mapGlowPulse 2.4s ease-in-out infinite;
+}

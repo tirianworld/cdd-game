@@ -41,7 +41,7 @@ export const GameFooter: React.FC = () => {
       </div>
 
       {/* 6 Circular Nav Buttons Row */}
-      <div className="relative z-10 max-w-[460px] mx-auto px-1 sm:px-2 py-1.5 flex items-center justify-between gap-0.5 sm:gap-1">
+      <div className="relative z-10 w-full max-w-[412px] mx-auto px-1 sm:px-2 py-1.5 flex items-center justify-between gap-0.5 sm:gap-1">
         {navButtons.map((btn) => {
           const isActive =
             currentTab === btn.id ||

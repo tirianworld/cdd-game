@@ -23,7 +23,7 @@ export const SantuarioView: React.FC = () => {
       <img
         src="/assets/backgrounds/icespear.png"
         alt="Santuario de Icespear"
-        className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none"
+        className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none"
       />
 
       {/* Top Left Floating Badges */}
@@ -70,7 +70,7 @@ export const SantuarioView: React.FC = () => {
 
       {/* Floating Notice Banner if collected tribute */}
       {claimedNotice && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 bg-[#3b170c] border-2 border-amber-400 text-amber-200 px-4 py-1.5 rounded-lg text-xs font-bold shadow-2xl animate-fade-in">
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 bg-[#3b170c] border-2 border-amber-400 text-amber-200 px-4 py-1.5 rounded-lg text-xs font-bold shadow-2xl animate-fade-in pointer-events-none">
           {claimedNotice}
         </div>
       )}
@@ -121,7 +121,7 @@ export const SantuarioView: React.FC = () => {
       </div>
 
       {/* Bottom Right: Authentic Circular WORLD Globe Button */}
-      <div className="relative z-20 self-end p-2 sm:p-3">
+      <div className="relative z-20 self-end p-2 sm:p-3 pointer-events-auto">
         <button
           onClick={() => {
             sound.playSFX('click');

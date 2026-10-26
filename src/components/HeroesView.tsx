@@ -46,32 +46,16 @@ export const CANONICAL_HEROES_LIST: CanonicalHeroItem[] = [
     name: 'Kurogame',
     title: 'Guardián Acorazado',
     rarity: 'SR',
-    attribute: 'Divino',
+    attribute: 'Natural',
     portrait: '/assets/portraits/kurogame_icono.png',
     frame: '/assets/ui/marco_sr.png',
-    orb: '/assets/items/atributo fe.png',
+    orb: '/assets/items/atributo natural.png',
     level: 1,
     hp: 1200,
     attack: 260,
     defense: 230,
     cc: 1380,
     bio: 'Caballero impasible de armadura negra, consagrado a la defensa sagrada de los bastiones de Moonhaven.',
-  },
-  {
-    id: 'pepe_loux',
-    name: 'Pepe Loux',
-    title: 'Gran Cruzado Veterano',
-    rarity: 'SR',
-    attribute: 'Natural',
-    portrait: '/assets/portraits/pepe_loux.png',
-    frame: '/assets/ui/marco_sr.png',
-    orb: '/assets/items/atributo natural.png',
-    level: 1,
-    hp: 1450,
-    attack: 280,
-    defense: 250,
-    cc: 1480,
-    bio: 'Veterano de mil batallas con su capa escarlata, custodio de los bosques ancestrales y la tierra natal.',
   },
   {
     id: 'luminor',
@@ -88,6 +72,22 @@ export const CANONICAL_HEROES_LIST: CanonicalHeroItem[] = [
     defense: 190,
     cc: 1340,
     bio: 'Espadachín noble dotado de esgrima estelar, su hoja corta el velo de la magia con gracia incomparable.',
+  },
+  {
+    id: 'pepe_loux',
+    name: 'Pepe Loux',
+    title: 'Gran Cruzado Veterano',
+    rarity: 'SR',
+    attribute: 'Divino',
+    portrait: '/assets/portraits/pepe_loux.png',
+    frame: '/assets/ui/marco_sr.png',
+    orb: '/assets/items/atributo fe.png',
+    level: 1,
+    hp: 1450,
+    attack: 280,
+    defense: 250,
+    cc: 1480,
+    bio: 'Veterano de mil batallas con su capa escarlata, custodio de los bosques ancestrales y la tierra natal.',
   },
   {
     id: 'magordito',
@@ -319,23 +319,6 @@ export const CANONICAL_HEROES_LIST: CanonicalHeroItem[] = [
     cc: 1297,
     bio: 'Astuta hechicera kitsune con vestido escarlata, seduce y confunde a los enemigos con ilusiones doradas.',
   },
-  {
-    id: 'ferton',
-    name: 'Ferton',
-    title: 'Comerciante Errante',
-    rarity: 'R',
-    attribute: 'Arcano',
-    portrait: '/assets/portraits/ferton_icono.png',
-    frame: '/assets/ui/marco_r.png',
-    orb: '/assets/items/estrella_mejora.png',
-    level: 1,
-    hp: 900,
-    attack: 210,
-    defense: 140,
-    cc: 980,
-    isLocked: true,
-    bio: 'Mercader taciturno con monóculo y misterios sellados, esperando a ser convocado en futuras gestas.',
-  },
 ];
 
 export const HeroesView: React.FC = () => {
@@ -404,9 +387,9 @@ export const HeroesView: React.FC = () => {
   };
 
   return (
-    <div className="relative w-full h-full flex flex-col justify-start bg-[#240a02] p-1.5 sm:p-2 space-y-1 sm:space-y-1.5 select-none overflow-hidden">
+    <div className="relative w-full h-full flex flex-col justify-start bg-transparent p-1.5 sm:p-2 space-y-1 select-none overflow-hidden">
       {/* 1. TOP WOODEN SORT/FILTER BAR (Authentic recurso_24_4x.png Wooden Board) */}
-      <div className="relative w-full h-[74px] sm:h-[82px] overflow-hidden rounded-xl flex items-center justify-between px-2 sm:px-3 shrink-0 shadow-xl border-2 border-[#541e0b] bg-[#3a180b]">
+      <div className="relative w-full h-[72px] sm:h-[80px] overflow-hidden rounded-xl flex items-center justify-between px-2 sm:px-3 shrink-0 shadow-xl border-2 border-[#541e0b] bg-[#3a180b]">
         {/* Carved Wood Plaque Asset (wide wood board) */}
         <img
           src="/assets/items/recurso_24_4x.png"
@@ -429,7 +412,7 @@ export const HeroesView: React.FC = () => {
           />
         </button>
 
-        {/* 4 Visible Filter Badges (e.g. [CC, Vida, Damage, Bond] or [Vida, Damage, Bond, Defense]) - LARGER ICONS */}
+        {/* 4 Visible Filter Badges (CC, Vida, Damage, Bond) - LARGER ICONS */}
         <div className="relative z-10 grid grid-cols-4 gap-2 sm:gap-3 flex-1 h-full items-center justify-items-center px-1 sm:px-2">
           {visibleFilterCards.map((card) => {
             const isSelected = activeFilterId === card.id;
@@ -451,7 +434,7 @@ export const HeroesView: React.FC = () => {
                 <img
                   src={card.img}
                   alt={card.label}
-                  className="w-auto h-[56px] sm:h-[64px] max-h-[82%] object-contain drop-shadow"
+                  className="w-auto h-[54px] sm:h-[62px] max-h-[82%] object-contain drop-shadow"
                 />
               </button>
             );
@@ -474,116 +457,82 @@ export const HeroesView: React.FC = () => {
         </button>
       </div>
 
-      {/* 2. COLOR / ATTRIBUTE FILTERS BAR (Positioned at top) */}
-      <div className="flex items-center justify-between gap-1 sm:gap-1.5 px-0.5 shrink-0">
-        {[
-          { id: 'ALL', label: 'TODOS', orb: null, color: 'from-amber-700 to-amber-950 border-amber-500' },
-          { id: 'Divino', label: 'DIVINO', orb: '/assets/items/atributo fe.png', color: 'from-blue-700 to-sky-950 border-blue-400' },
-          { id: 'Natural', label: 'NATURAL', orb: '/assets/items/atributo natural.png', color: 'from-emerald-700 to-green-950 border-emerald-400' },
-          { id: 'Arcano', label: 'ARCANO', orb: '/assets/items/atributo arcano.png', color: 'from-purple-700 to-indigo-950 border-purple-400' },
-          { id: 'Profano', label: 'PROFANO', orb: '/assets/items/atributo OSCURO.png', color: 'from-red-700 to-rose-950 border-red-500' },
-        ].map((attr) => {
-          const isSelected = filterAttribute === attr.id;
-          return (
-            <button
-              key={attr.id}
-              type="button"
-              onClick={() => {
-                sound.playSFX('click');
-                setFilterAttribute(attr.id);
-              }}
-              className={`flex-1 py-1 px-1 sm:px-1.5 rounded-lg border flex items-center justify-center gap-1 cursor-pointer transition-all ${
-                isSelected
-                  ? `bg-gradient-to-b ${attr.color} ring-2 ring-amber-300 text-white shadow-[0_0_10px_rgba(251,191,36,0.6)] font-black scale-102`
-                  : 'bg-[#180803]/90 border-[#4a1c0b] text-stone-300 hover:text-white hover:border-amber-600/60 opacity-80 hover:opacity-100'
-              }`}
-              title={`Filtrar por ${attr.label}`}
-            >
-              {attr.orb ? (
-                <img src={attr.orb} alt="" className="w-3.5 h-3.5 sm:w-4 sm:h-4 object-contain shrink-0 drop-shadow" />
-              ) : (
-                <span className="text-[9px] text-amber-300 font-black">✦</span>
-              )}
-              <span className="text-[8.5px] sm:text-[9.5px] font-black uppercase tracking-tight truncate drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
-                {attr.label}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* 3. ROW OF 4 ACTION BUTTONS: Afecto, Filtros, stats, PARTY */}
-      <div className="grid grid-cols-4 gap-2 px-1 shrink-0 h-7 sm:h-7.5 items-center my-0.5">
-        {/* Afecto Button */}
+      {/* 2. EXACT 4 COLORED BUTTONS ROW (Matching Image 2: Red Afecto, Blue Filtros, Green stats, Brown PARTY) */}
+      <div className="grid grid-cols-4 gap-1.5 sm:gap-2 px-0.5 shrink-0 h-8 sm:h-8.5 items-center my-0.5">
+        {/* Button 1: ❤️ Afecto (Red button) */}
         <button
           type="button"
           onClick={() => {
             sound.playSFX('click');
-            setActiveFilterId('bond');
+            setActiveFilterId((prev) => (prev === 'bond' ? 'cc' : 'bond'));
           }}
-          className="h-full flex items-center justify-center cursor-pointer hover:scale-102 active:scale-95 transition-transform"
+          className={`h-full flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 rounded-lg border-2 transition-all cursor-pointer ${
+            activeFilterId === 'bond'
+              ? 'bg-[#991b1b] border-[#ef4444] text-white shadow-[0_0_10px_rgba(239,68,68,0.7)] scale-102'
+              : 'bg-[#7f1d1d]/90 border-[#991b1b] text-stone-200 hover:text-white hover:bg-[#991b1b]'
+          }`}
           title="Afecto"
         >
-          <img
-            src="/assets/items/afecto.png"
-            alt="Afecto"
-            className="w-full h-full object-contain drop-shadow"
-          />
+          <span className="text-red-400 text-xs sm:text-sm drop-shadow">❤️</span>
+          <span className="text-[11px] sm:text-xs font-black tracking-wide text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
+            Afecto
+          </span>
         </button>
 
-        {/* Filtros Button */}
+        {/* Button 2: 🔍 Filtros (Blue button) */}
         <button
           type="button"
           onClick={() => {
             sound.playSFX('click');
             setShowFilterModal(true);
           }}
-          className="h-full flex items-center justify-center cursor-pointer hover:scale-102 active:scale-95 transition-transform"
+          className="h-full flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 rounded-lg border-2 bg-[#1d4ed8]/90 border-[#3b82f6] text-white hover:bg-[#2563eb] transition-all cursor-pointer shadow-md active:scale-95"
           title="Filtros"
         >
-          <img
-            src="/assets/items/filtros.png"
-            alt="Filtros"
-            className="w-full h-full object-contain drop-shadow"
-          />
+          <span className="text-sky-300 text-xs sm:text-sm drop-shadow">🔍</span>
+          <span className="text-[11px] sm:text-xs font-black tracking-wide text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
+            Filtros
+          </span>
         </button>
 
-        {/* stats Button */}
+        {/* Button 3: 👁️ stats (Green button) */}
         <button
           type="button"
           onClick={() => {
             sound.playSFX('click');
             setShowStats((prev) => !prev);
           }}
-          className={`h-full flex items-center justify-center cursor-pointer hover:scale-102 active:scale-95 transition-transform ${
-            showStats ? 'ring-2 ring-emerald-400 rounded-md filter brightness-115' : ''
+          className={`h-full flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 rounded-lg border-2 transition-all cursor-pointer ${
+            showStats
+              ? 'bg-[#15803d] border-[#22c55e] text-white shadow-[0_0_10px_rgba(34,197,94,0.7)] scale-102'
+              : 'bg-[#14532d]/90 border-[#15803d] text-emerald-100 hover:text-white hover:bg-[#15803d]'
           }`}
           title="Mostrar Estadísticas"
         >
-          <img
-            src="/assets/items/stats_boton.png"
-            alt="stats"
-            className="w-full h-full object-contain drop-shadow"
-          />
+          <span className="text-emerald-300 text-xs sm:text-sm drop-shadow">👁️</span>
+          <span className="text-[11px] sm:text-xs font-black tracking-wide text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)] lowercase">
+            stats
+          </span>
         </button>
 
-        {/* PARTY Button */}
+        {/* Button 4: 👤 PARTY (Brown button) */}
         <button
           type="button"
           onClick={() => {
             sound.playSFX('click');
             setPartyMode((prev) => !prev);
           }}
-          className={`h-full flex items-center justify-center cursor-pointer hover:scale-102 active:scale-95 transition-transform ${
-            partyMode ? 'ring-2 ring-amber-400 rounded-md filter brightness-115' : ''
+          className={`h-full flex items-center justify-center gap-1 sm:gap-1.5 px-1.5 rounded-lg border-2 transition-all cursor-pointer ${
+            partyMode
+              ? 'bg-[#92400e] border-[#f59e0b] text-amber-200 shadow-[0_0_10px_rgba(245,158,11,0.7)] scale-102'
+              : 'bg-[#78350f]/90 border-[#92400e] text-amber-200 hover:text-white hover:bg-[#92400e]'
           }`}
           title="Equipo / Party"
         >
-          <img
-            src="/assets/items/party.png"
-            alt="PARTY"
-            className="w-full h-full object-contain drop-shadow"
-          />
+          <span className="text-amber-300 text-xs sm:text-sm drop-shadow">👤</span>
+          <span className="text-[11px] sm:text-xs font-black tracking-wide text-amber-100 drop-shadow-[0_1px_1px_rgba(0,0,0,0.8)]">
+            PARTY
+          </span>
         </button>
       </div>
 
